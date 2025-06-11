@@ -1,62 +1,289 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Industry Enrichment Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Industry Classification Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-container {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .sticky-header th {
+            position: sticky;
+            top: 0;
+            background-color: #f3f4f6; /* bg-gray-100 */
+            z-index: 10;
+        }
+         #spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
-  <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold mb-4">Industry Enrichment Progress Tracker</h1>
-    <p class="mb-6">Live tracking of your current enrichment job. Updated in real-time as each batch completes.</p>
+<body class="bg-gray-50 text-gray-800">
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white shadow-md rounded-lg p-4">
-        <h2 class="text-xl font-semibold mb-2">Batch Progress</h2>
-        <ul id="batch-status" class="space-y-2">
-          <li class="bg-green-100 text-green-700 px-3 py-2 rounded">Batch 1: ✅ Verified & Delivered</li>
-          <li class="bg-yellow-100 text-yellow-700 px-3 py-2 rounded">Batch 2: ⏳ In Progress</li>
-          <li class="bg-gray-100 text-gray-600 px-3 py-2 rounded">Batch 3: Waiting</li>
-          <li class="bg-gray-100 text-gray-600 px-3 py-2 rounded">Batch 4: Waiting</li>
-          <li class="bg-gray-100 text-gray-600 px-3 py-2 rounded">Batch 5: Waiting</li>
-        </ul>
-      </div>
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">AI-Powered Industry Classification Tool</h1>
+            <p class="text-md text-gray-600">Upload a CSV to enrich it with your custom industry tags and NAICS codes.</p>
+        </header>
 
-      <div class="bg-white shadow-md rounded-lg p-4">
-        <h2 class="text-xl font-semibold mb-2">Summary Stats</h2>
-        <ul class="text-sm space-y-1">
-          <li>Total Records: 500</li>
-          <li>Verified: 100</li>
-          <li>Remaining: 400</li>
-          <li>Estimated Completion: ~3 hrs</li>
-        </ul>
-      </div>
+        <div class="max-w-7xl mx-auto">
+            <!-- Step 1: Upload -->
+            <div id="upload-section" class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Step 1: Upload Your Company List</h2>
+                <div class="flex items-center justify-center w-full">
+                    <label for="csv-file" class="flex flex-col items-center justify-center w-full h-48 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
+                            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p class="text-xs text-gray-500">CSV file</p>
+                            <p id="file-name" class="text-sm text-blue-600 mt-2 font-medium"></p>
+                        </div>
+                        <input id="csv-file" type="file" class="hidden" accept=".csv" />
+                    </label>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-sm text-gray-500">Ensure your CSV has columns for 'Cust#' and a company name.</p>
+                </div>
+            </div>
+            
+            <!-- Step 2: Configuration & Processing -->
+            <div id="config-section" class="bg-white p-6 rounded-lg shadow-md mb-6 hidden">
+                 <h2 class="text-xl font-semibold mb-4 text-gray-700">Step 2: Configure & Process</h2>
+                 <div class="mb-4">
+                    <label for="name-column-select" class="block text-sm font-medium text-gray-700 mb-1">Select the column with company names:</label>
+                    <select id="name-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                 </div>
+                 <div class="mb-4">
+                    <label for="cust-column-select" class="block text-sm font-medium text-gray-700 mb-1">Select the column with Customer #:</label>
+                    <select id="cust-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                 </div>
+                 <button id="start-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                    Start Processing
+                </button>
+            </div>
+
+            <!-- Step 3: Results -->
+            <div id="results-section" class="hidden">
+                 <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                        <h2 class="text-xl font-semibold text-gray-700">Step 3: Results</h2>
+                        <div class="flex items-center gap-2">
+                             <button id="download-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                                Download Enriched CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div id="progress-bar-container" class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                        <div id="progress-bar" class="bg-blue-600 h-4 rounded-full transition-width duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between items-center mb-4">
+                        <p id="progress-text" class="text-sm text-gray-600">Processing 0 of 0...</p>
+                        <div id="spinner" class="w-6 h-6 rounded-full border-4 border-gray-200 hidden"></div>
+                    </div>
+                    <div class="table-container border border-gray-200 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100 sticky-header">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cust#</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry Tag</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAICS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table" class="bg-white divide-y divide-gray-200">
+                                <!-- Results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-8 text-gray-500 text-sm">
+            <p>Industry classification is powered by the Gemini API via a secure backend.</p>
+        </footer>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadSection = document.getElementById('upload-section');
+            const configSection = document.getElementById('config-section');
+            const resultsSection = document.getElementById('results-section');
+            const csvFileInput = document.getElementById('csv-file');
+            const fileNameDisplay = document.getElementById('file-name');
+            const nameColumnSelect = document.getElementById('name-column-select');
+            const custColumnSelect = document.getElementById('cust-column-select');
+            const startBtn = document.getElementById('start-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const spinner = document.getElementById('spinner');
+            const resultsTable = document.getElementById('results-table');
 
-    <div class="mt-8">
-      <h2 class="text-xl font-semibold mb-2">Recent Records (Last 5)</h2>
-      <table class="min-w-full bg-white border rounded-lg overflow-hidden">
-        <thead class="bg-gray-200 text-gray-700 text-left text-sm uppercase">
-          <tr>
-            <th class="p-3">Cust #</th>
-            <th class="p-3">Company</th>
-            <th class="p-3">Industry</th>
-            <th class="p-3">NAICS</th>
-            <th class="p-3">SIC</th>
-            <th class="p-3">Confidence</th>
-          </tr>
-        </thead>
-        <tbody class="text-sm" id="recent-records">
-          <tr><td class="p-3">501-001</td><td class="p-3">Clint Newell</td><td class="p-3">Automotive</td><td class="p-3">441110</td><td class="p-3">5511</td><td class="p-3">95</td></tr>
-          <tr><td class="p-3">523-001</td><td class="p-3">Glockner Enterprises</td><td class="p-3">Automotive</td><td class="p-3">441110</td><td class="p-3">5511</td><td class="p-3">92</td></tr>
-          <tr><td class="p-3">554-005</td><td class="p-3">Valley-Hi Toyota Scion</td><td class="p-3">Automotive</td><td class="p-3">441110</td><td class="p-3">5511</td><td class="p-3">97</td></tr>
-          <tr class="bg-gray-50"><td class="p-3">583-028</td><td class="p-3">Flow Companies Inc.</td><td class="p-3">(In Progress)</td><td class="p-3">...</td><td class="p-3">...</td><td class="p-3">...</td></tr>
-          <tr class="bg-gray-50"><td class="p-3">623-001</td><td class="p-3">Kenny Kent Chevrolet</td><td class="p-3">(In Progress)</td><td class="p-3">...</td><td class="p-3">...</td><td class="p-3">...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+            let originalData = [];
+            let enrichedData = [];
+            let headers = [];
+
+            csvFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    fileNameDisplay.textContent = file.name;
+                    Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                            originalData = results.data;
+                            headers = results.meta.fields;
+                            
+                            nameColumnSelect.innerHTML = '';
+                            custColumnSelect.innerHTML = '';
+                            headers.forEach(header => {
+                                const nameOption = document.createElement('option');
+                                nameOption.value = header;
+                                nameOption.textContent = header;
+                                nameColumnSelect.appendChild(nameOption);
+
+                                const custOption = document.createElement('option');
+                                custOption.value = header;
+                                custOption.textContent = header;
+                                custColumnSelect.appendChild(custOption);
+
+                                if (header.toLowerCase().includes('name')) {
+                                    nameOption.selected = true;
+                                }
+                                if (header.toLowerCase().includes('cust') || header.toLowerCase().includes('org')) {
+                                    custOption.selected = true;
+                                }
+                            });
+
+                            uploadSection.classList.add('hidden');
+                            configSection.classList.remove('hidden');
+                        }
+                    });
+                }
+            });
+
+            startBtn.addEventListener('click', async () => {
+                const nameColumn = nameColumnSelect.value;
+                const custColumn = custColumnSelect.value;
+                const dataToProcess = originalData;
+                const totalRecordsToProcess = dataToProcess.length;
+
+                configSection.classList.add('hidden');
+                resultsSection.classList.remove('hidden');
+                spinner.classList.remove('hidden');
+                downloadBtn.disabled = true;
+
+                enrichedData = [];
+                resultsTable.innerHTML = '';
+
+                for (let i = 0; i < totalRecordsToProcess; i++) {
+                    const row = dataToProcess[i];
+                    const companyName = row[nameColumn];
+
+                    let enrichedRow = { ...row };
+                    try {
+                        const classification = await classifyCompany(companyName);
+                        enrichedRow['Industry Tag'] = classification.industry_tag;
+                        enrichedRow['Primary NAICS Code'] = classification.naics;
+                    } catch (error) {
+                        console.error(`Failed to classify '${companyName}':`, error);
+                        enrichedRow['Industry Tag'] = 'Error';
+                        enrichedRow['Primary NAICS Code'] = 'Error';
+                    }
+                    
+                    enrichedData.push(enrichedRow);
+                    updateTable(enrichedRow, nameColumn, custColumn);
+
+                    const progress = ((i + 1) / totalRecordsToProcess) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    progressText.textContent = `Processing ${i + 1} of ${totalRecordsToProcess}...`;
+                    
+                    await new Promise(resolve => setTimeout(resolve, 250)); // Rate limiting
+                }
+
+                spinner.classList.add('hidden');
+                progressText.textContent = `Processing complete! ${totalRecordsToProcess} records processed.`;
+                downloadBtn.disabled = false;
+            });
+
+            async function classifyCompany(companyName) {
+                if (!companyName || companyName.trim() === '') {
+                    return { industry_tag: 'N/A', naics: 'N/A' };
+                }
+
+                // *** IMPORTANT: REPLACE THIS URL WITH YOUR CLOUD FUNCTION'S TRIGGER URL ***
+                const cloudFunctionUrl = "https://classify-company-api-1081671860670.us-central1.run.app";
+
+                if (cloudFunctionUrl.includes("https://classify-company-api-1081671860670.us-central1.run.app")) {
+                    throw new Error("Cloud Function URL not configured. Please update the script.");
+                }
+                
+                const response = await fetch(cloudFunctionUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyName: companyName })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Cloud Function Error:", errorText);
+                    throw new Error(`Cloud Function request failed with status ${response.status}`);
+                }
+                
+                return await response.json();
+            }
+            
+            function updateTable(row, nameColumn, custColumn) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${row[custColumn] || ''}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row[nameColumn] || ''}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${row['Industry Tag'] || ''}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${row['Primary NAICS Code'] || ''}</td>
+                `;
+                resultsTable.appendChild(tr);
+            }
+
+            downloadBtn.addEventListener('click', () => {
+                const newHeaders = ['Industry Tag', 'Primary NAICS Code'];
+                const finalHeaders = [...headers];
+                newHeaders.forEach(nh => {
+                    if (!finalHeaders.includes(nh)) {
+                        finalHeaders.push(nh);
+                    }
+                });
+
+                const csv = Papa.unparse({
+                    fields: finalHeaders,
+                    data: enrichedData
+                });
+                
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'enriched_companies.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        });
+    </script>
 </body>
 </html>
