@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Industry Enrichment Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    async function fetchLiveData() {
+      try {
+        const response = await fetch('progress.json');
+        const data = await response.json();
+
+        const batchStatus = document.getElementById('batch-status');
+        batchStatus.innerHTML = '';
+        data.batches.forEach(batch => {
+          const li = document.createElement('li');
+          li.className = `px-3 py-2 rounded ${batch.statusClass}`;
+          li.innerHTML = `${batch.name}: ${batch.status}` + (batch.download ? ` — <a href="${batch.download}" class="text-blue-600 underline" download>Download CSV</a>` : '');
+          batchStatus.appendChild(li);
+        });
+
+        const stats = document.querySelector('.text-sm.space-y-1');
+        stats.innerHTML = `
+          <li>Total Records: ${data.stats.total}</li>
+          <li>Verified: ${data.stats.verified}</li>
+          <li>Remaining: ${data.stats.remaining}</li>
+          <li>Estimated Completion: ${data.stats.eta}</li>
+        `;
+
+        const recentRecords = document.getElementById('recent-records');
+        recentRecords.innerHTML = '';
+        data.recent.forEach((record, idx) => {
+          const row = document.createElement('tr');
+          if (idx >= 3) row.className = 'bg-gray-50';
+          row.innerHTML = `
+            <td class="p-3">${record.cust}</td>
+            <td class="p-3">${record.company}</td>
+            <td class="p-3">${record.industry}</td>
+            <td class="p-3">${record.naics}</td>
+            <td class="p-3">${record.sic}</td>
+            <td class="p-3">${record.confidence}</td>
+          `;
+          recentRecords.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Failed to load live data:', error);
+      }
+    }
+
+    setInterval(fetchLiveData, 600000); // 10 minutes
+    window.onload = fetchLiveData;
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans">
+  <div class="container mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-4">Industry Enrichment Progress Tracker</h1>
+    <p class="mb-6">Live tracking of your current enrichment job. Updated every 10 minutes.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white shadow-md rounded-lg p-4">
+        <h2 class="text-xl font-semibold mb-2">Batch Progress</h2>
+        <ul id="batch-status" class="space-y-2">
+          <li>Loading...</li>
+        </ul>
+      </div>
+
+      <div class="bg-white shadow-md rounded-lg p-4">
+        <h2 class="text-xl font-semibold mb-2">Summary Stats</h2>
+        <ul class="text-sm space-y-1">
+          <li>Loading...</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-8">
+      <h2 class="text-xl font-semibold mb-2">Recent Records (Last 5)</h2>
+      <table class="min-w-full bg-white border rounded-lg overflow-hidden">
+        <thead class="bg-gray-200 text-gray-700 text-left text-sm uppercase">
+          <tr>
+            <th class="p-3">Cust #</th>
+            <th class="p-3">Company</th>
+            <th class="p-3">Industry</th>
+            <th class="p-3">NAICS</th>
+            <th class="p-3">SIC</th>
+            <th class="p-3">Confidence</th>
+          </tr>
+        </thead>
+        <tbody class="text-sm" id="recent-records">
+          <tr><td class="p-3" colspan="6">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
