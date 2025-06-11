@@ -1,0 +1,31 @@
+{
+  "batches": [
+    {
+      "name": "Batch 1",
+      "status": "✅ Verified & Ready",
+      "download": "web_verified_batch_1.csv",
+      "statusClass": "bg-green-100 text-green-700"
+    },
+    {
+      "name": "Batch 2",
+      "status": "⏳ In Progress",
+      "statusClass": "bg-yellow-100 text-yellow-700"
+    }
+  ],
+  "stats": {
+    "total": 500,
+    "verified": 100,
+    "remaining": 400,
+    "eta": "~3 hrs"
+  },
+  "recent": [
+    {
+      "cust": "501-001",
+      "company": "Clint Newell",
+      "industry": "Automotive",
+      "naics": "441110",
+      "sic": "5511",
+      "confidence": "95"
+    }
+  ]
+}
