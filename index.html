@@ -56,22 +56,28 @@
                     </label>
                 </div>
                 <div class="mt-4 text-center">
-                    <p class="text-sm text-gray-500">Ensure your CSV has columns for 'Cust#' and a company name.</p>
+                    <p class="text-sm text-gray-500">Ensure your CSV has columns for 'Cust#', a company name, and optionally a website.</p>
                 </div>
             </div>
             
             <!-- Step 2: Configuration & Processing -->
             <div id="config-section" class="bg-white p-6 rounded-lg shadow-md mb-6 hidden">
                  <h2 class="text-xl font-semibold mb-4 text-gray-700">Step 2: Configure & Process</h2>
-                 <div class="mb-4">
-                    <label for="name-column-select" class="block text-sm font-medium text-gray-700 mb-1">Select the column with company names:</label>
-                    <select id="name-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <div class="mb-4">
+                        <label for="cust-column-select" class="block text-sm font-medium text-gray-700 mb-1">Customer # Column:</label>
+                        <select id="cust-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                     </div>
+                     <div class="mb-4">
+                        <label for="name-column-select" class="block text-sm font-medium text-gray-700 mb-1">Company Name Column:</label>
+                        <select id="name-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                     </div>
+                     <div class="mb-4">
+                        <label for="website-column-select" class="block text-sm font-medium text-gray-700 mb-1">Website Column (Optional):</label>
+                        <select id="website-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                     </div>
                  </div>
-                 <div class="mb-4">
-                    <label for="cust-column-select" class="block text-sm font-medium text-gray-700 mb-1">Select the column with Customer #:</label>
-                    <select id="cust-column-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
-                 </div>
-                 <button id="start-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                 <button id="start-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out mt-4">
                     Start Processing
                 </button>
             </div>
@@ -99,7 +105,8 @@
                             <thead class="bg-gray-100 sticky-header">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cust#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confirmed Name</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry Tag</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NAICS</th>
                                 </tr>
@@ -127,6 +134,7 @@
             const fileNameDisplay = document.getElementById('file-name');
             const nameColumnSelect = document.getElementById('name-column-select');
             const custColumnSelect = document.getElementById('cust-column-select');
+            const websiteColumnSelect = document.getElementById('website-column-select');
             const startBtn = document.getElementById('start-btn');
             const downloadBtn = document.getElementById('download-btn');
             const progressBar = document.getElementById('progress-bar');
@@ -151,6 +159,13 @@
                             
                             nameColumnSelect.innerHTML = '';
                             custColumnSelect.innerHTML = '';
+                            websiteColumnSelect.innerHTML = '';
+                            
+                            const noneOption = document.createElement('option');
+                            noneOption.value = "";
+                            noneOption.textContent = "None / Not Applicable";
+                            websiteColumnSelect.appendChild(noneOption);
+                            
                             headers.forEach(header => {
                                 const nameOption = document.createElement('option');
                                 nameOption.value = header;
@@ -162,11 +177,19 @@
                                 custOption.textContent = header;
                                 custColumnSelect.appendChild(custOption);
 
+                                const webOption = document.createElement('option');
+                                webOption.value = header;
+                                webOption.textContent = header;
+                                websiteColumnSelect.appendChild(webOption);
+
                                 if (header.toLowerCase().includes('name')) {
                                     nameOption.selected = true;
                                 }
                                 if (header.toLowerCase().includes('cust') || header.toLowerCase().includes('org')) {
                                     custOption.selected = true;
+                                }
+                                if (header.toLowerCase().includes('website')) {
+                                    webOption.selected = true;
                                 }
                             });
 
@@ -180,6 +203,7 @@
             startBtn.addEventListener('click', async () => {
                 const nameColumn = nameColumnSelect.value;
                 const custColumn = custColumnSelect.value;
+                const websiteColumn = websiteColumnSelect.value;
                 const dataToProcess = originalData;
                 const totalRecordsToProcess = dataToProcess.length;
 
@@ -194,14 +218,17 @@
                 for (let i = 0; i < totalRecordsToProcess; i++) {
                     const row = dataToProcess[i];
                     const companyName = row[nameColumn];
+                    const website = websiteColumn ? row[websiteColumn] : '';
 
                     let enrichedRow = { ...row };
                     try {
-                        const classification = await classifyCompany(companyName);
+                        const classification = await classifyCompany(companyName, website);
+                        enrichedRow['Confirmed Name'] = classification.confirmed_name;
                         enrichedRow['Industry Tag'] = classification.industry_tag;
                         enrichedRow['Primary NAICS Code'] = classification.naics;
                     } catch (error) {
                         console.error(`Failed to classify '${companyName}':`, error);
+                        enrichedRow['Confirmed Name'] = 'Error';
                         enrichedRow['Industry Tag'] = 'Error';
                         enrichedRow['Primary NAICS Code'] = 'Error';
                     }
@@ -213,7 +240,7 @@
                     progressBar.style.width = `${progress}%`;
                     progressText.textContent = `Processing ${i + 1} of ${totalRecordsToProcess}...`;
                     
-                    await new Promise(resolve => setTimeout(resolve, 250)); // Rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 250));
                 }
 
                 spinner.classList.add('hidden');
@@ -221,9 +248,9 @@
                 downloadBtn.disabled = false;
             });
 
-            async function classifyCompany(companyName) {
+            async function classifyCompany(companyName, website) {
                 if (!companyName || companyName.trim() === '') {
-                    return { industry_tag: 'N/A', naics: 'N/A' };
+                    return { confirmed_name: 'N/A', industry_tag: 'N/A', naics: 'N/A' };
                 }
 
                 const cloudFunctionUrl = "https://classify-company-api-1081671860670.us-west1.run.app";
@@ -235,7 +262,7 @@
                 const response = await fetch(cloudFunctionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ companyName: companyName })
+                    body: JSON.stringify({ companyName, website })
                 });
 
                 if (!response.ok) {
@@ -251,7 +278,8 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-500">${row[custColumn] || ''}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row[nameColumn] || ''}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${row[nameColumn] || ''}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row['Confirmed Name'] || ''}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${row['Industry Tag'] || ''}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${row['Primary NAICS Code'] || ''}</td>
                 `;
@@ -259,7 +287,7 @@
             }
 
             downloadBtn.addEventListener('click', () => {
-                const newHeaders = ['Industry Tag', 'Primary NAICS Code'];
+                const newHeaders = ['Confirmed Name', 'Industry Tag', 'Primary NAICS Code'];
                 const finalHeaders = [...headers];
                 newHeaders.forEach(nh => {
                     if (!finalHeaders.includes(nh)) {
